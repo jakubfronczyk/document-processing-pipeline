@@ -1,8 +1,11 @@
 import express from 'express';
 import { Queue, Worker, Job } from 'bullmq';
+import { DocumentStatus, PrismaClient } from '@prisma/client';
 
 const app = express();
 app.use(express.json());
+
+const prisma = new PrismaClient();
 
 const redisConfig = {
   host: 'localhost',
@@ -21,20 +24,6 @@ type InvoiceMetadata = {
   customer: string | null;
   amount: number;
 };
-
-type DocumentStatus = 'UPLOADED' | 'PROCESSING' | 'VALIDATED' | 'FAILED';
-
-type Document = {
-  id: string;
-  filename: string;
-  status: DocumentStatus;
-  metadata?: InvoiceMetadata;
-  ocrResult?: OCRResult;
-  createdAt: Date;
-};
-
-// in-memory storage
-const documents: Map<string, Document> = new Map();
 
 // bullmq queue and worker
 const documentQueue = new Queue('document-processing', {
@@ -78,28 +67,43 @@ const worker = new Worker(
     const { documentId, text } = job.data;
     console.log(`[WORKER] Processing document ${documentId}`);
 
-    const document = documents.get(documentId);
+    const document = await prisma.document.findUnique({
+      where: {
+        id: documentId,
+      },
+    });
+
     if (!document) {
       throw new Error(`Document ${documentId} not found`);
     }
 
     try {
-      document.status = 'PROCESSING';
-      console.log(`[PROCESSING] Started for document ${documentId}`);
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: DocumentStatus.PROCESSING },
+      });
 
       const ocrResult = await simulateOCR(text);
-      document.ocrResult = ocrResult;
 
       const metadata = extractMetadata(ocrResult.text);
-      document.metadata = metadata;
 
       const validation = validateDocument(metadata);
 
       if (validation.isValid) {
-        document.status = 'VALIDATED';
+        await prisma.document.update({
+          where: { id: documentId },
+          data: {
+            status: DocumentStatus.VALIDATED,
+            metadata: metadata,
+            ocrResult: ocrResult,
+          },
+        });
         console.log(`[SUCCESS] Document ${documentId} validated successfully`);
       } else {
-        document.status = 'FAILED';
+        await prisma.document.update({
+          where: { id: documentId },
+          data: { status: DocumentStatus.FAILED },
+        });
         console.log(
           `[FAILED] Document ${documentId} validation failed: ${validation.errors.join(
             ', '
@@ -108,7 +112,10 @@ const worker = new Worker(
         throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
       }
     } catch (error) {
-      document.status = 'FAILED';
+      await prisma.document.update({
+        where: { id: documentId },
+        data: { status: DocumentStatus.FAILED },
+      });
       console.log(`[ERROR] Document ${documentId} processing failed:`, error);
       throw error;
     }
@@ -128,14 +135,12 @@ app.post('/api/upload', async (req, res) => {
       return res.status(400).json({ error: 'Text content is required' });
     }
 
-    const document: Document = {
-      id: `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      filename,
-      status: 'UPLOADED',
-      createdAt: new Date(),
-    };
-
-    documents.set(document.id, document);
+    const document = await prisma.document.create({
+      data: {
+        filename,
+        status: DocumentStatus.UPLOADED,
+      },
+    });
 
     await documentQueue.add(
       'process-document',
@@ -165,19 +170,35 @@ app.post('/api/upload', async (req, res) => {
   }
 });
 
-app.get('/api/status/:id', (req, res) => {
-  const document = documents.get(req.params.id);
+app.get('/api/status/:id', async (req, res) => {
+  try {
+    const document = await prisma.document.findUnique({
+      where: {
+        id: req.params.id,
+      },
+    });
 
-  if (!document) {
-    return res.status(404).json({ error: 'Document not found' });
+    if (!document) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    res.json(document);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
   }
-
-  res.json(document);
 });
 
-app.get('/api/documents', (req, res) => {
-  const allDocuments = Array.from(documents.values());
-  res.json(allDocuments);
+app.get('/api/documents', async (req, res) => {
+  try {
+    const documents = await prisma.document.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+    res.json(documents);
+  } catch (error) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
 });
 
 const PORT = 3000;

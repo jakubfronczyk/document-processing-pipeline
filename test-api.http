@@ -1,0 +1,36 @@
+### valid invoice
+POST http://localhost:3000/api/upload
+Content-Type: application/json
+
+{
+  "text": "Invoice #INV-2024-001\nCustomer: John Doe\nAmount: $150.00",
+  "filename": "valid_invoice.txt"
+}
+
+###
+
+### missing customer
+POST http://localhost:3000/api/upload
+Content-Type: application/json
+
+{
+  "text": "Invoice #INV-2024-002\nAmount: $200.00"
+}
+
+###
+
+### invalid text input
+POST http://localhost:3000/api/upload
+Content-Type: application/json
+
+{
+  "filename": "broken.txt"
+}
+
+###
+
+### check all documents
+GET http://localhost:3000/api/documents
+
+###
+
