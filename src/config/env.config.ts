@@ -8,4 +8,5 @@ export const config = {
     host: process.env.REDIS_HOST || 'localhost',
     port: Number(process.env.REDIS_PORT) || 6379,
   },
+  env: process.env.NODE_ENV || 'development',
 };

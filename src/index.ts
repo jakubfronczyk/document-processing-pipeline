@@ -31,6 +31,6 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
 app.listen(config.port, () => {
   logger.info('[SERVER] Application started', {
     port: config.port,
-    environment: 'development',
+    environment: config.env,
   });
 });
