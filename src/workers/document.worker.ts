@@ -6,6 +6,7 @@ import { OCRResult, simulateOCR } from '../services/ocr.service';
 import { extractMetadata } from '../services/metadata.service';
 import { validateDocument } from '../services/validation.service';
 import { logger } from '../utils/logger.util';
+import { throwError } from '../utils/error.util';
 
 const processDocumentJob = async (job: Job) => {
   const { documentId, text } = job.data;
@@ -22,7 +23,7 @@ const processDocumentJob = async (job: Job) => {
     const validation = validateDocument(metadata);
 
     if (!validation.isValid) {
-      throw new Error(`Validation failed: ${validation.errors.join(', ')}`);
+      throwError(`Validation failed: ${validation.errors.join(', ')}`, 400);
     }
 
     await prisma.document.update({
