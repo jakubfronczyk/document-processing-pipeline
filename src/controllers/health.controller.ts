@@ -1,8 +1,14 @@
-import { Request, Response } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../config/database.config';
+import { logger } from '../utils/logger.util';
 
-export const getHealth = async (req: Request, res: Response) => {
+export const getHealth = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   try {
+    logger.info('[HEALTH] Health check requested');
     const documentCount = await prisma.document.count();
     res.json({
       status: 'healthy',
@@ -10,10 +16,6 @@ export const getHealth = async (req: Request, res: Response) => {
       documentsProcessed: documentCount,
     });
   } catch (error) {
-    console.error('Health check error:', error);
-    res.status(500).json({
-      status: 'unhealthy',
-      error: 'Database connection failed',
-    });
+    next(error);
   }
 };

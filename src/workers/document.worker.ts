@@ -5,14 +5,11 @@ import { config } from '../config/env.config';
 import { OCRResult, simulateOCR } from '../services/ocr.service';
 import { extractMetadata } from '../services/metadata.service';
 import { validateDocument } from '../services/validation.service';
+import { logger } from '../utils/logger.util';
 
 const processDocumentJob = async (job: Job) => {
   const { documentId, text } = job.data;
-  console.log(`[WORKER] Starting job`, {
-    pid: process.pid,
-    documentId,
-    jobId: job.id,
-  });
+  logger.info('[WORKER] Job started', { documentId, jobId: job.id });
 
   try {
     await prisma.document.update({
@@ -37,12 +34,12 @@ const processDocumentJob = async (job: Job) => {
       },
     });
 
-    console.log(`[WORKER] Completed successfully`, {
+    logger.info('[WORKER] Job completed successfully', {
       documentId,
       jobId: job.id,
     });
   } catch (error) {
-    console.error(`[WORKER] Failed`, {
+    logger.error('[WORKER] Job failed', {
       documentId,
       jobId: job.id,
       error: (error as Error).message,
