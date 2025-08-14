@@ -21,6 +21,7 @@ model Document {
   id          String           @id @default(cuid())
   filename    String
   status      DocumentStatus   @default(UPLOADED)
+  faileReason String?            
   metadata    Json?
   ocrResult   Json?
   createdAt   DateTime         @default(now())
