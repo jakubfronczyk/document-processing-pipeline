@@ -2,7 +2,7 @@
 
 A document processing system that handles invoice documents through multiple stages: upload, OCR processing, validation, and storage.
 
-![Architecture Diagram](./document-processing-pipeline.drawio)
+![Architecture Diagram](./document-processing-pipeline.drawio.svg)
 
 ## Overview
 
